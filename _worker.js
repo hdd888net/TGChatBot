@@ -125,11 +125,13 @@ async function onMessage(message, env) {
   if (text === '/start') {
 
     await sendText(chatId,
-`👋 欢迎使用【号多多】客服机器人
+`✨✨✨✨✨
+老板好！
 
-请直接发送您的问题
+这里是【号多多】客服系统
+有什么问题 直接发给我就行。
 
-客服会在群组中回复您`);
+人工客服看到后会第一时间回复您`);
 
   }
 
