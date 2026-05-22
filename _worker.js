@@ -893,4 +893,143 @@ export default {
           await handleVerification(chatId, messageId);
         }
 
-        await fetch
+        // ========== 用户菜单辅助函数 ==========
+    async function sendUserMenu(chatId) {
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '📋 我的状态', callback_data: 'user_status' }],
+          [{ text: '❓ 帮助说明', callback_data: 'user_help' }],
+          [{ text: '🔄 重新验证', callback_data: 'user_reverify' }],
+          [{ text: 'ℹ️ 关于机器人', callback_data: 'user_about' }]
+        ]
+      };
+      
+      await sendTelegramMessage(chatId, 
+        '🤖 *【号多多客服】功能菜单*\n\n请选择你要使用的功能：',
+        keyboard
+      );
+    }
+
+    async function sendHelpMessage(chatId) {
+      const helpText = 
+        '❓ *使用帮助*\n\n' +
+        '📌 *基本命令*\n' +
+        '• /start - 开始使用机器人\n' +
+        '• /menu - 打开功能菜单\n' +
+        '• /help - 查看帮助信息\n' +
+        '• /status - 查看验证状态\n\n' +
+        '📌 *使用说明*\n' +
+        '1️⃣ 发送任意消息即可联系客服\n' +
+        '2️⃣ 新用户需完成验证才能对话\n' +
+        '3️⃣ 客服会在群里回复您的问题\n\n' +
+        '⚠️ *注意事项*\n' +
+        '• 请勿频繁发送消息\n' +
+        '• 请勿发送违规内容\n' +
+        '• 如有问题请耐心等待客服回复';
+      
+      await sendTelegramMessage(chatId, helpText);
+    }
+
+    async function sendUserStatus(chatId) {
+      const userState = await env.D1.prepare(
+        'SELECT is_blocked, is_verified, verified_expiry, is_first_verification FROM user_states WHERE chat_id = ?'
+      ).bind(chatId).first();
+      
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      const isVerified = userState?.is_verified && userState?.verified_expiry && nowSeconds < userState.verified_expiry;
+      
+      let statusText = '📊 *您的状态*\n\n';
+      statusText += `🔹 黑名单状态：${userState?.is_blocked ? '🔴 已被拉黑' : '🟢 正常'}\n`;
+      statusText += `🔹 验证状态：${isVerified ? '✅ 已验证' : '❌ 未验证'}\n`;
+      
+      if (isVerified && userState?.verified_expiry) {
+        const expiryDate = new Date(userState.verified_expiry * 1000);
+        statusText += `🔹 验证有效期：${expiryDate.toLocaleString()}\n`;
+      }
+      
+      statusText += `🔹 新用户：${userState?.is_first_verification ? '是' : '否'}\n\n`;
+      statusText += `💡 如需重新验证，请发送 /menu 选择"重新验证"`;
+      
+      await sendTelegramMessage(chatId, statusText);
+    }
+
+    async function sendAboutMessage(chatId) {
+      const aboutText = 
+        'ℹ️ *关于【号多多】客服机器人*\n\n' +
+        '🤖 *功能说明*\n' +
+        '本机器人用于连接用户与客服，提供便捷的沟通渠道。\n\n' +
+        '📡 *技术架构*\n' +
+        '• 平台：Cloudflare Workers\n' +
+        '• 数据库：Cloudflare D1\n\n' +
+        '📝 *主要功能*\n' +
+        '• 用户私聊自动创建话题\n' +
+        '• 客服在群内回复用户\n' +
+        '• 防刷验证码机制\n' +
+        '• 黑名单管理系统\n\n' +
+        '📞 *联系我们*\n' +
+        '如有问题请联系管理员';
+      
+      await sendTelegramMessage(chatId, aboutText);
+    }
+
+    async function sendTelegramMessage(chatId, text, keyboard = null) {
+      const body = {
+        chat_id: chatId,
+        text: text,
+        parse_mode: 'Markdown'
+      };
+      if (keyboard) body.reply_markup = JSON.stringify(keyboard);
+      
+      const response = await fetchWithRetry(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      
+      return await response.json();
+    }
+
+    async function editTelegramMessage(chatId, messageId, text, keyboard = null) {
+      const body = {
+        chat_id: chatId,
+        message_id: messageId,
+        text: text,
+        parse_mode: 'Markdown'
+      };
+      if (keyboard) body.reply_markup = JSON.stringify(keyboard);
+      
+      const response = await fetchWithRetry(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      
+      return await response.json();
+    }
+
+    async function deleteTelegramMessage(chatId, messageId) {
+      try {
+        await fetchWithRetry(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            message_id: messageId
+          })
+        });
+      } catch (error) {
+        // 忽略删除失败
+      }
+    }
+
+    async function answerCallbackQuery(callbackQueryId, text = null) {
+      const body = { callback_query_id: callbackQueryId };
+      if (text) body.text = text;
+      
+      await fetchWithRetry(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    }
+    // ========== 菜单辅助函数结束 ==========
