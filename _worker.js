@@ -376,16 +376,15 @@ ON CONFLICT(chat_id) DO UPDATE SET
 }
 
 async function sendVerificationPrompt(chatId) {
+  const VERIFY_TXT = `✨ 号多多｜HDD888
 
-  return await sendText(
-    chatId,
-const VERIFY_TXT =`号多多|HDD888
-宝子，请先完成真人验证 👇。
+宝子，请先完成一次真人验证 👇
 
-请直接回复数字：${VERIFY_CODE}
+📩 请直接回复数字：${VERIFY_CODE}
 
-验证通过后，即可与客服勾兑小😉。`
-  );
+验证通过后，即可与客服勾兑小 😉`;
+
+  return await sendText(chatId, VERIFY_TXT);
 }
 
 async function sendMenu(chatId) {
