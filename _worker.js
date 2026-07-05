@@ -73,12 +73,12 @@ async function onMessage(message, env) {
   const chatId = message.chat.id.toString();
   const text = message.text || '';
 
-  const messageKey = ${chatId}:${message.message_id};
+  const messageKey = `${chatId}:${message.message_id}`;
 
-const firstProcess = await markMessageProcessed(env, messageKey);
-if (!firstProcess) {
-  return;
-}
+  const firstProcess = await markMessageProcessed(env, messageKey);
+  if (!firstProcess) {
+    return;
+  }
 
   // 用户命令
   if (text === '/menu') {
@@ -149,7 +149,7 @@ if (!firstProcess) {
 
   const userInfo = await getUserInfo(chatId);
 
-  const topicId = await ensureTopic(
+  let topicId = await ensureTopic(
     env,
     chatId,
     userInfo
@@ -159,13 +159,52 @@ if (!firstProcess) {
     return await sendText(chatId, '创建会话失败');
   }
 
+  const safeNickname = escapeMarkdown(userInfo.nickname);
+  const safeText = escapeMarkdown(text);
+  let sendResult;
+
   if (text) {
 
-    const safeText = escapeMarkdown(text);
+    sendResult = await sendTopicMessage(
+      topicId,
+`${safeNickname}：
+
+${safeText}`
+    );
+
+  } else {
+
+    sendResult = await copyToTopic(
+      topicId,
+      message
+    );
+  }
+
+  const sendData = await safeTelegramJson(sendResult);
+
+  if (sendData?.ok) {
+    return;
+  }
+
+  // 如果客服端删除了用户话题，旧 topic_id 会失效。
+  // 这里自动清理旧绑定并重建新话题，再重发本次用户消息。
+  await resetTopicMap(env, chatId);
+
+  topicId = await ensureTopic(
+    env,
+    chatId,
+    userInfo
+  );
+
+  if (!topicId) {
+    return await sendText(chatId, '会话已重建失败，请稍后再试');
+  }
+
+  if (text) {
 
     await sendTopicMessage(
       topicId,
-`${userInfo.nickname}：
+`${safeNickname}：
 
 ${safeText}`
     );
@@ -590,4 +629,20 @@ async function markMessageProcessed(env, messageKey) {
   `).bind(messageKey, now).run();
 
   return result.meta.changes > 0;
+}
+
+
+async function resetTopicMap(env, chatId) {
+  await env.D1.prepare(`
+    DELETE FROM topic_map
+    WHERE chat_id = ?
+  `).bind(chatId).run();
+}
+
+async function safeTelegramJson(response) {
+  try {
+    return await response.json();
+  } catch (e) {
+    return null;
+  }
 }
