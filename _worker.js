@@ -128,7 +128,7 @@ async function onMessage(message, env) {
   const verifyResult = await checkUserVerification(env, chatId, text);
 
   if (verifyResult === 'passed') {
-    await sendText(chatId, '✅ 验证成功，您可以发信息了。');
+    await sendText(chatId, '✅ 验证成功，请发送您的问题。');
     return;
   }
 
@@ -378,7 +378,7 @@ ON CONFLICT(chat_id) DO UPDATE SET
 async function sendVerificationPrompt(chatId) {
   const VERIFY_TXT = `✨ 号多多｜HDD888
 
-宝子，请先完成一次真人验证 👇
+宝子，请先完成真人验证 👇
 
 📩 请直接回复数字：${VERIFY_CODE}
 
