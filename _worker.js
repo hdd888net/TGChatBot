@@ -379,7 +379,8 @@ async function sendVerificationPrompt(chatId) {
 
   return await sendText(
     chatId,
-`宝子，请先完成真人验证 👇。
+const VERIFY_TXT =`号多多|HDD888
+宝子，请先完成真人验证 👇。
 
 请直接回复数字：${VERIFY_CODE}
 
