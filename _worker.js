@@ -382,7 +382,7 @@ async function sendVerificationPrompt(chatId) {
 
 📩 请直接回复数字：${VERIFY_CODE}
 
-验证通过后，即可与客服勾兑小 😉`;
+验证通过后，即可与小二勾兑 😉`;
 
   return await sendText(chatId, VERIFY_TXT);
 }
