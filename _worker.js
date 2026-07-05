@@ -128,7 +128,7 @@ async function onMessage(message, env) {
   const verifyResult = await checkUserVerification(env, chatId, text);
 
   if (verifyResult === 'passed') {
-    await sendText(chatId, '✅ 验证成功，请发送你的问题。');
+    await sendText(chatId, '✅ 验证成功，您可以发信息了。');
     return;
   }
 
@@ -379,11 +379,11 @@ async function sendVerificationPrompt(chatId) {
 
   return await sendText(
     chatId,
-`为了减少垃圾信息，请先完成简单验证。
+`宝子，请先完成真人验证 👇。
 
 请直接回复数字：${VERIFY_CODE}
 
-验证通过后，请重新发送你的问题。`
+验证通过后，即可与客服勾兑小😉。`
   );
 }
 
