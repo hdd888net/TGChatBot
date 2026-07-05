@@ -73,17 +73,12 @@ async function onMessage(message, env) {
   const chatId = message.chat.id.toString();
   const text = message.text || '';
 
-  const messageKey = `${chatId}:${message.message_id}`;
+  const messageKey = ${chatId}:${message.message_id};
 
-  if (processedMessages.has(messageKey)) {
-    return;
-  }
-
-  processedMessages.add(messageKey);
-
-  if (processedMessages.size > 5000) {
-    processedMessages.clear();
-  }
+const firstProcess = await markMessageProcessed(env, messageKey);
+if (!firstProcess) {
+  return;
+}
 
   // 用户命令
   if (text === '/menu') {
@@ -577,4 +572,22 @@ function escapeMarkdown(text) {
 /[_*[\]()~`>#+=|{}.!-]/g,
 '\\$&'
   );
+}
+
+async function markMessageProcessed(env, messageKey) {
+  const now = Math.floor(Date.now() / 1000);
+
+  await env.D1.prepare(`
+    CREATE TABLE IF NOT EXISTS processed_messages (
+      message_key TEXT PRIMARY KEY,
+      created_at INTEGER
+    )
+  `).run();
+
+  const result = await env.D1.prepare(`
+    INSERT OR IGNORE INTO processed_messages (message_key, created_at)
+    VALUES (?, ?)
+  `).bind(messageKey, now).run();
+
+  return result.meta.changes > 0;
 }
