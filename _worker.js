@@ -1,6 +1,9 @@
 let BOT_TOKEN;
 let GROUP_ID;
 let MAX_MESSAGES_PER_MINUTE = 40;
+let verifiedTableReady = false;
+
+const VERIFY_CODE = '888';
 
 const processedMessages = new Set();
 const processedCallbacks = new Set();
@@ -121,7 +124,20 @@ async function onMessage(message, env) {
     );
   }
 
-  // 私聊 start
+  // 私聊用户验证：未验证用户不创建话题、不转发到客服群
+  const verifyResult = await checkUserVerification(env, chatId, text);
+
+  if (verifyResult === 'passed') {
+    await sendText(chatId, '✅ 验证成功，请发送你的问题。');
+    return;
+  }
+
+  if (verifyResult !== true) {
+    await sendVerificationPrompt(chatId);
+    return;
+  }
+
+  // 私聊 start：已验证用户再次 /start，只发送欢迎语，不转发到客服群
   if (text === '/start') {
 
     await sendText(chatId,
@@ -132,6 +148,7 @@ async function onMessage(message, env) {
 有什么问题 直接发给我就行。
 
 人工客服看到后会第一时间回复您`);
+    return;
 
   }
 
@@ -274,6 +291,100 @@ WHERE topic_id = ?`
   .first();
 
   return row?.chat_id || null;
+}
+
+async function ensureVerificationTable(env) {
+
+  if (verifiedTableReady) {
+    return;
+  }
+
+  await env.D1.prepare(
+`CREATE TABLE IF NOT EXISTS verified_users (
+  chat_id TEXT PRIMARY KEY,
+  verified INTEGER NOT NULL DEFAULT 0,
+  verified_at INTEGER,
+  fail_count INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER
+)`
+  ).run();
+
+  verifiedTableReady = true;
+}
+
+async function checkUserVerification(env, chatId, text) {
+
+  await ensureVerificationTable(env);
+
+  const row = await env.D1.prepare(
+`SELECT verified
+FROM verified_users
+WHERE chat_id = ?`
+  )
+  .bind(chatId)
+  .first();
+
+  if (row?.verified === 1) {
+    return true;
+  }
+
+  const input = (text || '').trim();
+
+  if (input === VERIFY_CODE) {
+
+    const now = Math.floor(Date.now() / 1000);
+
+    await env.D1.prepare(
+`INSERT INTO verified_users (
+  chat_id,
+  verified,
+  verified_at,
+  fail_count,
+  updated_at
+)
+VALUES (?, 1, ?, 0, ?)
+ON CONFLICT(chat_id) DO UPDATE SET
+  verified = 1,
+  verified_at = excluded.verified_at,
+  fail_count = 0,
+  updated_at = excluded.updated_at`
+    )
+    .bind(chatId, now, now)
+    .run();
+
+    return 'passed';
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+
+  await env.D1.prepare(
+`INSERT INTO verified_users (
+  chat_id,
+  verified,
+  fail_count,
+  updated_at
+)
+VALUES (?, 0, 1, ?)
+ON CONFLICT(chat_id) DO UPDATE SET
+  fail_count = fail_count + 1,
+  updated_at = excluded.updated_at`
+  )
+  .bind(chatId, now)
+  .run();
+
+  return false;
+}
+
+async function sendVerificationPrompt(chatId) {
+
+  return await sendText(
+    chatId,
+`为了减少垃圾信息，请先完成简单验证。
+
+请直接回复数字：${VERIFY_CODE}
+
+验证通过后，请重新发送你的问题。`
+  );
 }
 
 async function sendMenu(chatId) {
