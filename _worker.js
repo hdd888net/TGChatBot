@@ -376,7 +376,7 @@ ON CONFLICT(chat_id) DO UPDATE SET
 }
 
 async function sendVerificationPrompt(chatId) {
-  const VERIFY_TXT = `✨ 号多多｜HDD888
+  const VERIFY_TXT = `🔰 号多多｜HDD888
 
 宝子，请先完成真人验证 👇
 
